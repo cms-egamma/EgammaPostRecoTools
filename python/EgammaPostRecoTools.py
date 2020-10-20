@@ -100,30 +100,49 @@ def _check_valid_era(era):
 def _getEnergyCorrectionFile(era):
     _check_valid_era(era)
     if era=="2017-Nov17ReReco":
-        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2017_17Nov2017_v1_ele_unc"
+        fileTypeJSON = False
+        print "Setting correction file type to txt"
+        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2017_17Nov2017_v1_ele_unc", fileTypeJSON
     if era=="2016-Legacy":
-        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Legacy2016_07Aug2017_FineEtaR9_v3_ele_unc"
+        fileTypeJSON = False
+        print "Setting correction file type to txt"
+        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Legacy2016_07Aug2017_FineEtaR9_v3_ele_unc", fileTypeJSON
     if era=="2016-Feb17ReMiniAOD":
         raise RuntimeError('Error in postRecoEgammaTools, era 2016-Feb17ReMiniAOD is not currently implimented')
     if era=="2018-Prompt":
-        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2018_Step2Closure_CoarseEtaR9Gain_v2"
+        fileTypeJSON = False
+        print "Setting correction file type to txt"
+        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2018_Step2Closure_CoarseEtaR9Gain_v2", fileTypeJSON
     if era=="2017-UL":
-        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2017_24Feb2020_runEtaR9Gain_v2"
+        fileTypeJSON = True
+        print "Setting correction file type to JSON"
+        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2017_24Feb2020_runEtaR9Gain_v2", fileTypeJSON
     if era=="2018-UL":
-        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2018_13Apr2020_RunEtaR9Gain_v2"
+        fileTypeJSON = True
+        print "Setting correction file type to JSON"
+        return "EgammaAnalysis/ElectronTools/data/ScalesSmearings/Run2018_13Apr2020_RunEtaR9Gain_v2", fileTypeJSON
         
     if era=="2016-UL":
         raise RuntimeError('Error in postRecoEgammaTools, era 2016-UL does not yet have energy corrections, please contact the e/gamma pog for more information')
 
     raise LogicError('Error in postRecoEgammaTools, era '+era+' not added to energy corrections function, please update this function')
 
-
 ###SJ for SF
-def _getIDSFFile(era):
+def _getEleIDSFFile(era):
     eleSFfile = "RecoEgamma/EgammaTools/data/run2_EleIDs.json"
+    if era=="2017-UL" or era=="2018-UL":
+        return eleSFfile
+
+    elif era=="2016-UL":
+        raise RuntimeError('Error in postRecoEgammaTools, 2016-UL is still not done') 
+
+    elif "UL" not in era:
+        raise RuntimeError('Error in postRecoEgammaTools, cannot add SFs pre UL era')
+
+def _getPhoIDSFFile(era):
     phoSFfile = "RecoEgamma/EgammaTools/data/run2_PhoIDs.json"
     if era=="2017-UL" or era=="2018-UL":
-        return eleSFfile, phoSFfile
+        return phoSFfile
 
     elif era=="2016-UL":
         raise RuntimeError('Error in postRecoEgammaTools, 2016-UL is still not done') 
@@ -134,10 +153,13 @@ def _getIDSFFile(era):
 
 def _getPtEtaBoundaryForIDSF(sfName, era):
 
+    pt_bndrs  = cms.vdouble()
+    eta_bndrs = cms.vdouble()
+
     if sfName == "cutBasedElectronID-Fall17-94X-V2-veto":
         pt_bndrs  = cms.vdouble(10., 20., 35.0, 50., 100., 200., 500.)
         eta_bndrs = cms.vdouble(-2.5, -2.0, -1.566, -1.444, -0.8, 0.0, 0.8, 1.444, 1.566, 2.0, 2.5) 
-
+        
     elif sfName == "cutBasedElectronID-Fall17-94X-V2-loose":
         pt_bndrs  = cms.vdouble(10., 20., 35.0, 50., 100., 200., 500.)
         eta_bndrs = cms.vdouble(-2.5, -2.0, -1.566, -1.444, -0.8, 0.0, 0.8, 1.444, 1.566, 2.0, 2.5) 
@@ -252,7 +274,8 @@ class CfgData:
             'runEnergyCorrections' : True,
             'applyEPCombBug' : False,
             'autoAdjustParams' : True,
-            'runEgammaSF' : True,
+            'runEgammaEleIDSF' : False,
+            'runEgammaPhoIDSF' : False,
             'eleIDSFName' : _defaultEleIDSF,
             'phoIDSFName' : _defaultPhoIDSF,
             'process' : None
@@ -413,10 +436,12 @@ def _setupEgammaEnergyCorrections(eleSrc,phoSrc,cfg):
     eleCalibProd.src = eleSrc
     phoCalibProd.src = phoSrc
     
-    energyCorrectionFile = _getEnergyCorrectionFile(cfg.era)
+    energyCorrectionFile, fileReadType = _getEnergyCorrectionFile(cfg.era)
     eleCalibProd.correctionFile = energyCorrectionFile
     phoCalibProd.correctionFile = energyCorrectionFile
 
+#    eleCalibProd.fileTypeJSON = fileReadType
+#    phoCalibProd.fileTypeJSON = fileReadType
 
     if cfg.applyEPCombBug and hasattr(eleCalibProd,'useSmearCorrEcalEnergyErrInComb'):
         eleCalibProd.useSmearCorrEcalEnergyErrInComb=True
@@ -512,14 +537,15 @@ def _setupEgammaVID(eleSrc,phoSrc,cfg):
 
 
 ###SJ SF setup
-def _setupEgammaIDSF(cfg, egammaSFModifier):
+def _setupEgammaEleIDSF(cfg, egammaSFModifiertmp, idname):
+    print "Inside _setupEgammaEleIDSF"
     process = cfg.process
-    eleSFfile, phoSFfile = _getIDSFFile(cfg.era)
+    eleSFfile = _getEleIDSFFile(cfg.era)
 
     if cfg.era == "2017-UL":
-        egammaSFModifier.year = cms.string("2017")
+        egammaSFModifiertmp.year = cms.string("2017")
     elif cfg.era == "2018-UL":
-        egammaSFModifier.year = cms.string("2018")
+        egammaSFModifiertmp.year = cms.string("2018")
     elif era=="2016-UL":
         raise RuntimeError('Error in postRecoEgammaTools, 2016-UL is still not done') 
 
@@ -527,18 +553,38 @@ def _setupEgammaIDSF(cfg, egammaSFModifier):
         raise RuntimeError('Error in postRecoEgammaTools, cannot add SFs pre UL era')
 
 
-    ele_pt_bndrs, ele_eta_bndrs = _getPtEtaBoundaryForIDSF(cfg.eleIDSFName, cfg.era)
-    egammaSFModifier.elefilename = cms.string(os.environ['CMSSW_BASE'] + '/src/%s'%eleSFfile)
-    egammaSFModifier.ele_sf_name = cfg.eleIDSFName
-    egammaSFModifier.ele_pt_bndrs = ele_pt_bndrs
-    egammaSFModifier.ele_eta_bndrs = ele_eta_bndrs
 
-    pho_pt_bndrs, pho_eta_bndrs = _getPtEtaBoundaryForIDSF(cfg.phoIDSFName, cfg.era)
-    egammaSFModifier.phofilename = cms.string(os.environ['CMSSW_BASE'] + '/src/%s'%phoSFfile)
-    egammaSFModifier.pho_sf_name = cfg.phoIDSFName
-    egammaSFModifier.pho_pt_bndrs = pho_pt_bndrs
-    egammaSFModifier.pho_eta_bndrs = pho_eta_bndrs
+    pt_bndrs, eta_bndrs = _getPtEtaBoundaryForIDSF(idname, cfg.era)
+    egammaSFModifiertmp.elefilename = cms.string(os.environ['CMSSW_BASE'] + '/src/%s'%eleSFfile)
+    egammaSFModifiertmp.ele_sf_name = idname
+    egammaSFModifiertmp.ele_pt_bndrs = pt_bndrs
+    egammaSFModifiertmp.ele_eta_bndrs = eta_bndrs
 
+    print "Printing eleID SF modifier"
+    print egammaSFModifiertmp
+    return egammaSFModifiertmp
+
+def _setupEgammaPhoIDSF(cfg, egammaSFModifiertmp, idname):
+
+    process = cfg.process
+    phoSFfile = _getPhoIDSFFile(cfg.era)
+
+    if cfg.era == "2017-UL":
+        egammaSFModifiertmp.year = cms.string("2017")
+    elif cfg.era == "2018-UL":
+        egammaSFModifiertmp.year = cms.string("2018")
+    elif era=="2016-UL":
+        raise RuntimeError('Error in postRecoEgammaTools, 2016-UL is still not done') 
+
+    elif "UL" not in era:
+        raise RuntimeError('Error in postRecoEgammaTools, cannot add SFs pre UL era')
+
+    pt_bndrs, eta_bndrs = _getPtEtaBoundaryForIDSF(idname, cfg.era)
+    egammaSFModifiertmp.phofilename = cms.string(os.environ['CMSSW_BASE'] + '/src/%s'%phoSFfile)
+    egammaSFModifiertmp.pho_sf_name = idname
+    egammaSFModifiertmp.pho_pt_bndrs = pt_bndrs
+    egammaSFModifiertmp.pho_eta_bndrs = eta_bndrs
+    return egammaSFModifiertmp
     
 
 def _setupEgammaPostVIDUpdator(eleSrc,phoSrc,cfg):
@@ -562,15 +608,30 @@ def _setupEgammaPostVIDUpdator(eleSrc,phoSrc,cfg):
         egamma_modifications.append(egamma8XLegacyEtScaleSysModifier)
         
     ###SJ add the SFs
-    if cfg.runEgammaSF:
-        print("running SF modifier")
-        _setupEgammaIDSF(cfg,egammaSFModifier)
-     
-        print "Running eleID with file %s and ID %s "%(egammaSFModifier.elefilename, egammaSFModifier.ele_sf_name)
-        print "Running phoID with file %s and ID %s "%(egammaSFModifier.phofilename, egammaSFModifier.pho_sf_name)
-        
-        egamma_modifications.append(egammaSFModifier)
+    if cfg.runEgammaEleIDSF:
+        egammaeleIDSFModifierMap = []
+        ieleID = 0
+        for eleID in cfg.eleIDSFName:
+            egammaeleIDSFModifierMap.append(egammaSFModifier.clone())
+            egammaeleIDSFModifierMap[ieleID] = _setupEgammaEleIDSF(cfg,egammaeleIDSFModifierMap[ieleID], eleID)
+            print("running EleID SF modifier")
+            print "Running phoID with file %s and ID %s "%(egammaSFModifier.elefilename, egammaSFModifier.ele_sf_name)
 
+            
+            egamma_modifications.append(egammaeleIDSFModifierMap[ieleID])
+            ieleID = ieleID+1
+
+    if cfg.runEgammaPhoIDSF:
+        egammaphoIDSFModifierMap = []
+        print "Running phoID with file %s and ID %s "%(egammaSFModifier.phofilename, egammaSFModifier.pho_sf_name)
+        iphoID = 0
+        for phoID in cfg.phoIDSFName:
+            
+            egammaphoIDSFModifierMap.append(egammaSFModifier.clone()) 
+            
+            egammaphoIDSFModifierMap[iphoID] = _setupEgammaPhoIDSF(cfg,egammaphoIDSFModifierMap[iphoID], phoID)
+            egamma_modifications.append(egammaphoIDSFModifierMap[iphoID])
+            iphoID = iphoID + 1
     
     #add any missing variables to the slimmed electron 
     if cfg.runVID:
@@ -673,7 +734,8 @@ def setupEgammaPostRecoSeq(process,
                            runVID=True,
                            runEnergyCorrections=True,
                            applyEPCombBug=False,
-                           runEgammaSF=True,
+                           runEgammaEleIDSF=True,
+                           runEgammaPhoIDSF=True,
                            eleIDSFName=_defaultEleIDSF,
                            phoIDSFName=_defaultPhoIDSF,
                            autoAdjustParams=True):
@@ -703,13 +765,13 @@ def setupEgammaPostRecoSeq(process,
 
 
 
-    _setupEgammaPostRecoSeq(process,applyEnergyCorrections=applyEnergyCorrections,applyVIDOnCorrectedEgamma=applyVIDOnCorrectedEgamma,era=era,runVID=runVID,runEnergyCorrections=runEnergyCorrections,applyEPCombBug=applyEPCombBug,isMiniAOD=isMiniAOD,runEgammaSF=runEgammaSF,eleIDSFName=eleIDSFName, phoIDSFName=phoIDSFName)
+    _setupEgammaPostRecoSeq(process,applyEnergyCorrections=applyEnergyCorrections,applyVIDOnCorrectedEgamma=applyVIDOnCorrectedEgamma,era=era,runVID=runVID,runEnergyCorrections=runEnergyCorrections,applyEPCombBug=applyEPCombBug,isMiniAOD=isMiniAOD,runEgammaEleIDSF=runEgammaEleIDSF, runEgammaPhoIDSF=runEgammaPhoIDSF, eleIDSFName=eleIDSFName, phoIDSFName=phoIDSFName)
     
 
     return process
 
 
-def makeEgammaPATWithUserData(process,eleTag=None,phoTag=None,runVID=True,runEnergyCorrections=True,runEgammaSF=True,era="2017-Nov17ReReco",suffex="WithUserData"):
+def makeEgammaPATWithUserData(process,eleTag=None,phoTag=None,runVID=True,runEnergyCorrections=True,runEgammaEleIDSF=True, runEgammaPhoIDSF=True, era="2017-Nov17ReReco",suffex="WithUserData"):
     """
     This function embeds the value maps into a pat::Electron,pat::Photon
     This function is not officially supported by e/gamma and is on a best effort bais
@@ -728,10 +790,6 @@ def makeEgammaPATWithUserData(process,eleTag=None,phoTag=None,runVID=True,runEne
     if runEnergyCorrections:
         egamma_modifications.append(makeEnergyScaleAndSmearingSysModifier("calibratedElectrons","calibratedPhotons"))
         egamma_modifications.append(egamma8XLegacyEtScaleSysModifier)
-    
-    if runEgammaSF:
-        print("running SF modifier")
-        egamma_modifications.append(egammaSFModifier)
 
     process.egammaPostRecoPatUpdatorTask = cms.Task()
 
