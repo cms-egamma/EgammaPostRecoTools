@@ -560,8 +560,6 @@ def _setupEgammaEleIDSF(cfg, egammaSFModifiertmp, idname):
     egammaSFModifiertmp.ele_pt_bndrs = pt_bndrs
     egammaSFModifiertmp.ele_eta_bndrs = eta_bndrs
 
-    print "Printing eleID SF modifier"
-    print egammaSFModifiertmp
     return egammaSFModifiertmp
 
 def _setupEgammaPhoIDSF(cfg, egammaSFModifiertmp, idname):
@@ -614,8 +612,7 @@ def _setupEgammaPostVIDUpdator(eleSrc,phoSrc,cfg):
         for eleID in cfg.eleIDSFName:
             egammaeleIDSFModifierList.append(egammaSFModifier.clone())
             egammaeleIDSFModifierList[ieleID] = _setupEgammaEleIDSF(cfg,egammaeleIDSFModifierList[ieleID], eleID)
-            print("running EleID SF modifier")
-            print "Running phoID with file %s and ID %s "%(egammaSFModifier.elefilename, egammaSFModifier.ele_sf_name)
+#            print "Running eleID with file %s and ID %s "%(egammaSFModifier.elefilename, egammaSFModifier.ele_sf_name)
 
             
             egamma_modifications.append(egammaeleIDSFModifierList[ieleID])
@@ -623,7 +620,7 @@ def _setupEgammaPostVIDUpdator(eleSrc,phoSrc,cfg):
 
     if cfg.runEgammaPhoIDSF:
         egammaphoIDSFModifierList = []
-        print "Running phoID with file %s and ID %s "%(egammaSFModifier.phofilename, egammaSFModifier.pho_sf_name)
+#        print "Running phoID with file %s and ID %s "%(egammaSFModifier.phofilename, egammaSFModifier.pho_sf_name)
         iphoID = 0
         for phoID in cfg.phoIDSFName:
             
