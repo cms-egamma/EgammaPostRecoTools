@@ -609,28 +609,28 @@ def _setupEgammaPostVIDUpdator(eleSrc,phoSrc,cfg):
         
     ###SJ add the SFs
     if cfg.runEgammaEleIDSF:
-        egammaeleIDSFModifierMap = []
+        egammaeleIDSFModifierList = []
         ieleID = 0
         for eleID in cfg.eleIDSFName:
-            egammaeleIDSFModifierMap.append(egammaSFModifier.clone())
-            egammaeleIDSFModifierMap[ieleID] = _setupEgammaEleIDSF(cfg,egammaeleIDSFModifierMap[ieleID], eleID)
+            egammaeleIDSFModifierList.append(egammaSFModifier.clone())
+            egammaeleIDSFModifierList[ieleID] = _setupEgammaEleIDSF(cfg,egammaeleIDSFModifierList[ieleID], eleID)
             print("running EleID SF modifier")
             print "Running phoID with file %s and ID %s "%(egammaSFModifier.elefilename, egammaSFModifier.ele_sf_name)
 
             
-            egamma_modifications.append(egammaeleIDSFModifierMap[ieleID])
+            egamma_modifications.append(egammaeleIDSFModifierList[ieleID])
             ieleID = ieleID+1
 
     if cfg.runEgammaPhoIDSF:
-        egammaphoIDSFModifierMap = []
+        egammaphoIDSFModifierList = []
         print "Running phoID with file %s and ID %s "%(egammaSFModifier.phofilename, egammaSFModifier.pho_sf_name)
         iphoID = 0
         for phoID in cfg.phoIDSFName:
             
-            egammaphoIDSFModifierMap.append(egammaSFModifier.clone()) 
+            egammaphoIDSFModifierList.append(egammaSFModifier.clone()) 
             
-            egammaphoIDSFModifierMap[iphoID] = _setupEgammaPhoIDSF(cfg,egammaphoIDSFModifierMap[iphoID], phoID)
-            egamma_modifications.append(egammaphoIDSFModifierMap[iphoID])
+            egammaphoIDSFModifierList[iphoID] = _setupEgammaPhoIDSF(cfg,egammaphoIDSFModifierList[iphoID], phoID)
+            egamma_modifications.append(egammaphoIDSFModifierList[iphoID])
             iphoID = iphoID + 1
     
     #add any missing variables to the slimmed electron 
